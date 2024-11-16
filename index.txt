@@ -1,0 +1,89 @@
+// Define a structure for devices
+struct Device {
+    name: String      // Device identifier
+    connection_time: Integer // Time the device was connected
+    consumption: Integer    // Current power consumption (in units)
+}
+
+// Initialize the system with total available power
+MAX_CAPACITY = 100
+SAFE_CAPACITY = 92
+current_power_usage = 0
+devices = []  // List to hold active devices in FIFO order
+
+// Function to update total power consumption
+function update_total_power_usage() {
+    current_power_usage = 0
+    for each device in devices:
+        current_power_usage += device.consumption
+    end for
+}
+
+// Function to allocate power based on FIFO and consumption changes
+function allocate_power() {
+    update_total_power_usage()
+
+    // If total power usage exceeds safe capacity, adjust devices
+    if current_power_usage > SAFE_CAPACITY:
+        // Adjust devices in FIFO order
+        available_power = SAFE_CAPACITY
+        for each device in devices:
+            if available_power > 0:
+                // Allocate as much power as possible, but not more than the device's max capacity
+                if device.consumption <= available_power:
+                    available_power -= device.consumption
+                else:
+                    // If remaining power is less than device's consumption, allocate only available power
+                    device.consumption = available_power
+                    available_power = 0
+            else:
+                device.consumption = 0  // No power available for further devices
+        end for
+    end if
+}
+
+// Function to handle a new device connection
+function connect_device(device_name, requested_consumption, connection_time) {
+    if requested_consumption > 40:
+        requested_consumption = 40  // Max capacity per device
+
+    new_device = Device(device_name, connection_time, requested_consumption)
+    devices.append(new_device)
+    allocate_power()
+}
+
+// Function to handle a device disconnection
+function disconnect_device(device_name) {
+    for i = 0 to length(devices) - 1:
+        if devices[i].name == device_name:
+            current_power_usage -= devices[i].consumption
+            devices.remove(i)
+            break
+    end for
+    allocate_power()
+}
+
+// Function to handle a device's change in consumption
+function change_device_consumption(device_name, new_consumption) {
+    for each device in devices:
+        if device.name == device_name:
+            current_power_usage -= device.consumption
+            device.consumption = min(new_consumption, 40)  // Device can't use more than 40 units
+            current_power_usage += device.consumption
+            break
+    end for
+    allocate_power()
+}
+
+// Example Scenario
+t = 0
+connect_device("A", 40, t)  // Device A connects at t=0 with 40 units
+t = 1
+connect_device("B", 40, t)  // Device B connects at t=1 with 40 units
+t = 2
+connect_device("C", 40, t)  // Device C connects at t=2, but gets 12 units (total 92 max)
+t = 3
+change_device_consumption("A", 20)  // Device A reduces to 20 units at t=3
+change_device_consumption("C", 32)  // Device C increases to 32 units at t=3
+t = 4
+disconnect_device("B")  // Device B disconnects at t=4, releasing 40 units
